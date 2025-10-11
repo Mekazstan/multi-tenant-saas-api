@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: mts-postgres
+    environment:
+      POSTGRES_DB: mts
+      POSTGRES_USER: mts_user
+      POSTGRES_PASSWORD: mts_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mts-network
+
+volumes:
+  postgres_data:
+
+networks:
+  mts-network:
+    driver: bridge
