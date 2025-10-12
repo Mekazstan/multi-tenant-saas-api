@@ -108,11 +108,16 @@ func main() {
 	mux.Handle("GET /api/v1/billing/usage", authMiddleware(http.HandlerFunc(cfg.getBillingUsageHandler)))
 	mux.Handle("GET /api/v1/billing/history", authMiddleware(http.HandlerFunc(cfg.getBillingHistoryHandler)))
 	mux.Handle("GET /api/v1/billing/calculate", authMiddleware(http.HandlerFunc(cfg.calculateCurrentBillHandler)))
+	mux.Handle("POST /api/v1/billing/upgrade", authMiddleware(http.HandlerFunc(cfg.upgradePlanHandler)))
+	mux.Handle("POST /api/v1/billing/initiate-payment", authMiddleware(http.HandlerFunc(cfg.initiatePaymentHandler)))
 
 	// Protected dashboard routes (require JWT)
 	mux.Handle("GET /api/v1/dashboard/stats", authMiddleware(http.HandlerFunc(cfg.getDashboardStatsHandler)))
 	mux.Handle("GET /api/v1/dashboard/usage-graph", authMiddleware(http.HandlerFunc(cfg.getDashboardUsageGraphHandler)))
 	mux.Handle("GET /api/v1/dashboard/api-keys", authMiddleware(http.HandlerFunc(cfg.getDashboardAPIKeysHandler)))
+
+	// Webhook routes (no auth - verified by signature)
+	mux.HandleFunc("POST /api/v1/webhooks/payment", cfg.paymentWebhookHandler)
 
 	// API Key protected routes (with rate limiting and usage tracking)
 	apiKeyMiddleware := APIKeyMiddleware(cfg.db)
