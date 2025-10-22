@@ -57,12 +57,6 @@ SELECT * FROM users
 WHERE organization_id = $1
 ORDER BY created_at DESC;
 
--- name: UpdateUserRole :one
-UPDATE users
-SET role = $1
-WHERE id = $2
-RETURNING *;
-
 -- name: DeleteUser :exec
 DELETE FROM users
 WHERE id = $1;
@@ -251,3 +245,114 @@ FROM billing_cycles bc
 JOIN organizations o ON bc.organization_id = o.id
 WHERE bc.status = 'overdue'
 ORDER BY bc.period_end ASC;
+
+-- name: CreateAuthToken :one
+INSERT INTO auth_tokens (user_id, token, type, expires_at)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: GetAuthToken :one
+SELECT * FROM auth_tokens
+WHERE token = $1 AND used_at IS NULL AND expires_at > NOW()
+LIMIT 1;
+
+-- name: MarkTokenAsUsed :one
+UPDATE auth_tokens
+SET used_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteExpiredTokens :exec
+DELETE FROM auth_tokens
+WHERE expires_at < NOW();
+
+-- name: VerifyUserEmail :one
+UPDATE users
+SET email_verified = true, email_verified_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: UpdateUserPassword :one
+UPDATE users
+SET password_hash = $1
+WHERE id = $2
+RETURNING *;
+
+-- name: CreateTeamInvitation :one
+INSERT INTO team_invitations (organization_id, email, role, invited_by, token, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: GetTeamInvitationByToken :one
+SELECT 
+    ti.*,
+    o.name as organization_name,
+    u.email as inviter_email
+FROM team_invitations ti
+JOIN organizations o ON ti.organization_id = o.id
+JOIN users u ON ti.invited_by = u.id
+WHERE ti.token = $1 
+  AND ti.accepted_at IS NULL 
+  AND ti.declined_at IS NULL 
+  AND ti.expires_at > NOW()
+LIMIT 1;
+
+-- name: AcceptTeamInvitation :one
+UPDATE team_invitations
+SET accepted_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: DeclineTeamInvitation :one
+UPDATE team_invitations
+SET declined_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: ListOrganizationInvitations :many
+SELECT 
+    ti.*,
+    u.email as inviter_email
+FROM team_invitations ti
+JOIN users u ON ti.invited_by = u.id
+WHERE ti.organization_id = $1
+ORDER BY ti.created_at DESC;
+
+-- name: GetPendingInvitationByEmail :one
+SELECT * FROM team_invitations
+WHERE organization_id = $1 
+  AND email = $2 
+  AND accepted_at IS NULL 
+  AND declined_at IS NULL
+LIMIT 1;
+
+-- name: DeleteExpiredInvitations :exec
+DELETE FROM team_invitations
+WHERE expires_at < NOW();
+
+-- name: CancelInvitation :one
+UPDATE team_invitations
+SET declined_at = NOW()
+WHERE id = $1 AND organization_id = $2
+RETURNING *;
+
+-- name: RemoveTeamMember :exec
+DELETE FROM users
+WHERE id = $1 AND organization_id = $2 AND role != 'owner';
+
+-- name: UpdateUserRole :one
+UPDATE users
+SET role = $1
+WHERE id = $2 AND organization_id = $3 AND role != 'owner'
+RETURNING *;
+
+-- name: ListOrganizationMembers :many
+SELECT 
+    u.id,
+    u.email,
+    u.role,
+    u.email_verified,
+    u.created_at
+FROM users u
+WHERE u.organization_id = $1
+ORDER BY u.created_at DESC;

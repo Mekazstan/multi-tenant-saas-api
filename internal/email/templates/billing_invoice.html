@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #6366F1; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #fff; padding: 30px; border: 1px solid #e5e7eb; }
+        .invoice-details { background: #F9FAFB; padding: 20px; border-radius: 6px; margin: 20px 0; }
+        .button { display: inline-block; padding: 12px 24px; background: #10B981; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .total { font-size: 24px; font-weight: bold; color: #4F46E5; margin: 10px 0; }
+        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Your Monthly Invoice</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{.OrganizationName}},</p>
+            <p>Your invoice for the billing period is ready.</p>
+            <div class="invoice-details">
+                <p><strong>Invoice Number:</strong> #{{.InvoiceNumber}}</p>
+                <p><strong>Period:</strong> {{.PeriodStart}} to {{.PeriodEnd}}</p>
+                <p><strong>Total Requests:</strong> {{.TotalRequests}}</p>
+                <p><strong>Amount Due:</strong></p>
+                <div class="total">${{printf "%.2f" .TotalAmount}}</div>
+                <p><strong>Due Date:</strong> {{.DueDate}}</p>
+            </div>
+            <a href="{{.InvoiceURL}}" class="button">View Full Invoice & Pay</a>
+            <p>Thank you for using our service!</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Your SaaS. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -98,6 +98,49 @@ func (ns NullPlanType) Value() (driver.Value, error) {
 	return string(ns.PlanType), nil
 }
 
+type TokenType string
+
+const (
+	TokenTypeEmailVerification TokenType = "email_verification"
+	TokenTypePasswordReset     TokenType = "password_reset"
+	TokenTypeTeamInvitation    TokenType = "team_invitation"
+)
+
+func (e *TokenType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TokenType(s)
+	case string:
+		*e = TokenType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TokenType: %T", src)
+	}
+	return nil
+}
+
+type NullTokenType struct {
+	TokenType TokenType `json:"token_type"`
+	Valid     bool      `json:"valid"` // Valid is true if TokenType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTokenType) Scan(value interface{}) error {
+	if value == nil {
+		ns.TokenType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TokenType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTokenType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TokenType), nil
+}
+
 type UserRole string
 
 const (
@@ -151,6 +194,16 @@ type ApiKey struct {
 	LastUsedAt     pgtype.Timestamp `json:"last_used_at"`
 }
 
+type AuthToken struct {
+	ID        uuid.UUID        `json:"id"`
+	UserID    pgtype.UUID      `json:"user_id"`
+	Token     string           `json:"token"`
+	Type      TokenType        `json:"type"`
+	ExpiresAt pgtype.Timestamp `json:"expires_at"`
+	UsedAt    pgtype.Timestamp `json:"used_at"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
+}
+
 type BillingCycle struct {
 	ID             uuid.UUID        `json:"id"`
 	OrganizationID uuid.UUID        `json:"organization_id"`
@@ -171,6 +224,19 @@ type Organization struct {
 	UpdatedAt pgtype.Timestamp `json:"updated_at"`
 }
 
+type TeamInvitation struct {
+	ID             uuid.UUID        `json:"id"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	Email          string           `json:"email"`
+	Role           UserRole         `json:"role"`
+	InvitedBy      uuid.UUID        `json:"invited_by"`
+	Token          string           `json:"token"`
+	ExpiresAt      pgtype.Timestamp `json:"expires_at"`
+	AcceptedAt     pgtype.Timestamp `json:"accepted_at"`
+	DeclinedAt     pgtype.Timestamp `json:"declined_at"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+}
+
 type UsageRecord struct {
 	ID             uuid.UUID        `json:"id"`
 	OrganizationID uuid.UUID        `json:"organization_id"`
@@ -182,10 +248,12 @@ type UsageRecord struct {
 }
 
 type User struct {
-	ID             uuid.UUID        `json:"id"`
-	OrganizationID uuid.UUID        `json:"organization_id"`
-	Email          string           `json:"email"`
-	PasswordHash   string           `json:"password_hash"`
-	Role           UserRole         `json:"role"`
-	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	ID              uuid.UUID        `json:"id"`
+	OrganizationID  uuid.UUID        `json:"organization_id"`
+	Email           string           `json:"email"`
+	PasswordHash    string           `json:"password_hash"`
+	Role            UserRole         `json:"role"`
+	CreatedAt       pgtype.Timestamp `json:"created_at"`
+	EmailVerified   bool             `json:"email_verified"`
+	EmailVerifiedAt pgtype.Timestamp `json:"email_verified_at"`
 }

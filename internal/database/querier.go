@@ -11,17 +11,21 @@ import (
 )
 
 type Querier interface {
+	AcceptTeamInvitation(ctx context.Context, id uuid.UUID) (TeamInvitation, error)
 	ActivateAPIKey(ctx context.Context, id uuid.UUID) (ApiKey, error)
+	CancelInvitation(ctx context.Context, arg CancelInvitationParams) (TeamInvitation, error)
 	CountOrganizationUsage(ctx context.Context, arg CountOrganizationUsageParams) (int64, error)
 	// ============================================
 	// API KEY QUERIES
 	// ============================================
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
+	CreateAuthToken(ctx context.Context, arg CreateAuthTokenParams) (AuthToken, error)
 	// ============================================
 	// BILLING CYCLE QUERIES
 	// ============================================
 	CreateBillingCycle(ctx context.Context, arg CreateBillingCycleParams) (BillingCycle, error)
 	CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (Organization, error)
+	CreateTeamInvitation(ctx context.Context, arg CreateTeamInvitationParams) (TeamInvitation, error)
 	// ============================================
 	// USAGE RECORD QUERIES
 	// ============================================
@@ -31,11 +35,15 @@ type Querier interface {
 	// ============================================
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeactivateAPIKey(ctx context.Context, id uuid.UUID) (ApiKey, error)
+	DeclineTeamInvitation(ctx context.Context, id uuid.UUID) (TeamInvitation, error)
 	DeleteAPIKey(ctx context.Context, id uuid.UUID) error
+	DeleteExpiredInvitations(ctx context.Context) error
+	DeleteExpiredTokens(ctx context.Context) error
 	DeleteOrganization(ctx context.Context, id uuid.UUID) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	GetAPIKey(ctx context.Context, id uuid.UUID) (ApiKey, error)
 	GetAPIKeyByKey(ctx context.Context, key string) (GetAPIKeyByKeyRow, error)
+	GetAuthToken(ctx context.Context, token string) (AuthToken, error)
 	GetBillingCycle(ctx context.Context, id uuid.UUID) (BillingCycle, error)
 	GetCurrentBillingCycle(ctx context.Context, organizationID uuid.UUID) (BillingCycle, error)
 	GetDailyUsageStats(ctx context.Context, arg GetDailyUsageStatsParams) ([]GetDailyUsageStatsRow, error)
@@ -43,6 +51,8 @@ type Querier interface {
 	GetOrganizationByEmail(ctx context.Context, email string) (Organization, error)
 	GetOverdueBillingCycles(ctx context.Context) ([]GetOverdueBillingCyclesRow, error)
 	GetPendingBillingCycles(ctx context.Context) ([]GetPendingBillingCyclesRow, error)
+	GetPendingInvitationByEmail(ctx context.Context, arg GetPendingInvitationByEmailParams) (TeamInvitation, error)
+	GetTeamInvitationByToken(ctx context.Context, token string) (GetTeamInvitationByTokenRow, error)
 	GetUsageByAPIKey(ctx context.Context, arg GetUsageByAPIKeyParams) ([]GetUsageByAPIKeyRow, error)
 	GetUsageByEndpoint(ctx context.Context, arg GetUsageByEndpointParams) ([]GetUsageByEndpointRow, error)
 	GetUsageRecord(ctx context.Context, id uuid.UUID) (UsageRecord, error)
@@ -51,14 +61,20 @@ type Querier interface {
 	GetUserWithOrganization(ctx context.Context, id uuid.UUID) (GetUserWithOrganizationRow, error)
 	ListOrganizationAPIKeys(ctx context.Context, organizationID uuid.UUID) ([]ApiKey, error)
 	ListOrganizationBillingCycles(ctx context.Context, arg ListOrganizationBillingCyclesParams) ([]BillingCycle, error)
+	ListOrganizationInvitations(ctx context.Context, organizationID uuid.UUID) ([]ListOrganizationInvitationsRow, error)
+	ListOrganizationMembers(ctx context.Context, organizationID uuid.UUID) ([]ListOrganizationMembersRow, error)
 	ListOrganizationUsage(ctx context.Context, arg ListOrganizationUsageParams) ([]UsageRecord, error)
 	ListOrganizationUsers(ctx context.Context, organizationID uuid.UUID) ([]User, error)
 	ListOrganizations(ctx context.Context, arg ListOrganizationsParams) ([]Organization, error)
+	MarkTokenAsUsed(ctx context.Context, id uuid.UUID) (AuthToken, error)
+	RemoveTeamMember(ctx context.Context, arg RemoveTeamMemberParams) error
 	UpdateAPIKeyLastUsed(ctx context.Context, id uuid.UUID) error
 	UpdateBillingCycleStatus(ctx context.Context, arg UpdateBillingCycleStatusParams) (BillingCycle, error)
 	UpdateBillingCycleTotals(ctx context.Context, arg UpdateBillingCycleTotalsParams) (BillingCycle, error)
 	UpdateOrganizationPlan(ctx context.Context, arg UpdateOrganizationPlanParams) (Organization, error)
+	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (User, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
+	VerifyUserEmail(ctx context.Context, id uuid.UUID) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

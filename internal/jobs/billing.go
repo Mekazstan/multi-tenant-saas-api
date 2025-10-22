@@ -12,18 +12,16 @@ import (
 )
 
 // GenerateMonthlyBillingCycles creates billing cycles for all organizations
-// This should run on the 1st of every month at 00:00 UTC
+// Runs on the 1st of every month at 00:00 UTC
 func GenerateMonthlyBillingCycles(db *database.Queries) error {
 	ctx := context.Background()
 
-	// Calculate previous month period
 	now := time.Now()
 	periodStart := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.UTC)
 	periodEnd := periodStart.AddDate(0, 1, 0).Add(-time.Second)
 
 	log.Printf("Generating billing cycles for period: %s to %s", periodStart.Format("2006-01-02"), periodEnd.Format("2006-01-02"))
 
-	// Get all organizations (paginate if you have many)
 	offset := int32(0)
 	limit := int32(100)
 	totalProcessed := 0
@@ -59,7 +57,6 @@ func GenerateMonthlyBillingCycles(db *database.Queries) error {
 func createBillingCycleForOrg(ctx context.Context, db *database.Queries, org database.Organization, periodStart, periodEnd time.Time) error {
 	startPeriodPg := pgtype.Timestamp{Time: periodStart, Valid: true}
 	endPeriodPg := pgtype.Timestamp{Time: periodEnd, Valid: true}
-	// Count usage for the period
 	totalRequests, err := db.CountOrganizationUsage(ctx, database.CountOrganizationUsageParams{
 		OrganizationID: org.ID,
 		CreatedAt:      startPeriodPg,
@@ -69,17 +66,13 @@ func createBillingCycleForOrg(ctx context.Context, db *database.Queries, org dat
 		return fmt.Errorf("failed to count usage: %w", err)
 	}
 
-	// Calculate billing amount based on plan
 	totalAmount := calculateBillingAmount(totalRequests, org.Plan)
 
-	// Convert decimal.Decimal to pgtype.Numeric
-    totalAmountPg, err := decimalToPgNumeric(totalAmount)
-    if err != nil {
-        return fmt.Errorf("failed to convert amount: %w", err)
-    }
+	totalAmountPg, err := decimalToPgNumeric(totalAmount)
+	if err != nil {
+		return fmt.Errorf("failed to convert amount: %w", err)
+	}
 
-
-	// Create billing cycle
 	cycle, err := db.CreateBillingCycle(ctx, database.CreateBillingCycleParams{
 		OrganizationID: org.ID,
 		PeriodStart:    startPeriodPg,
@@ -101,9 +94,9 @@ func createBillingCycleForOrg(ctx context.Context, db *database.Queries, org dat
 }
 
 func decimalToPgNumeric(d decimal.Decimal) (pgtype.Numeric, error) {
-    num := pgtype.Numeric{}
-    err := num.Scan(d.String())
-    return num, err
+	num := pgtype.Numeric{}
+	err := num.Scan(d.String())
+	return num, err
 }
 
 func calculateBillingAmount(requests int64, plan database.PlanType) decimal.Decimal {
@@ -140,13 +133,12 @@ func calculateBillingAmount(requests int64, plan database.PlanType) decimal.Deci
 }
 
 // CheckAndMarkOverdueBillings marks pending invoices as overdue
-// This should run daily at 02:00 UTC
+// Run daily at 02:00 UTC
 func CheckAndMarkOverdueBillings(db *database.Queries) error {
 	ctx := context.Background()
 
 	log.Println("Checking for overdue billing cycles...")
 
-	// Get all pending billing cycles
 	pendingCycles, err := db.GetPendingBillingCycles(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get pending cycles: %w", err)
@@ -156,12 +148,9 @@ func CheckAndMarkOverdueBillings(db *database.Queries) error {
 	overdueCount := 0
 
 	for _, cycle := range pendingCycles {
-		// Due date is 7 days after period end
 		dueDate := cycle.PeriodEnd.Time.Add(7 * 24 * time.Hour)
 
-		// Check if past due date
 		if now.After(dueDate) {
-			// Mark as overdue
 			_, err := db.UpdateBillingCycleStatus(ctx, database.UpdateBillingCycleStatusParams{
 				Status: database.BillingStatusOverdue,
 				ID:     cycle.ID,
@@ -174,7 +163,7 @@ func CheckAndMarkOverdueBillings(db *database.Queries) error {
 			overdueCount++
 			daysPastDue := int(now.Sub(dueDate).Hours() / 24)
 
-			log.Printf("Marked billing cycle %s as OVERDUE (org: %s, days past due: %d)", 
+			log.Printf("Marked billing cycle %s as OVERDUE (org: %s, days past due: %d)",
 				cycle.ID, cycle.OrganizationName, daysPastDue)
 
 			// Send overdue notification
@@ -182,7 +171,7 @@ func CheckAndMarkOverdueBillings(db *database.Queries) error {
 
 			// Optional: Suspend organization if payment is very late (30+ days)
 			if daysPastDue > 30 {
-				log.Printf("WARNING: Organization %s is %d days overdue - consider suspension", 
+				log.Printf("WARNING: Organization %s is %d days overdue - consider suspension",
 					cycle.OrganizationName, daysPastDue)
 				// suspendOrganization(db, cycle.OrganizationID)
 			}
@@ -194,35 +183,34 @@ func CheckAndMarkOverdueBillings(db *database.Queries) error {
 }
 
 // AutoPayFreePlanInvoices automatically marks free plan $0 invoices as paid
-// This should run shortly after monthly billing generation
+// Runs shortly after monthly billing generation
 func AutoPayFreePlanInvoices(db *database.Queries) error {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    log.Println("Auto-paying free plan invoices...")
+	log.Println("Auto-paying free plan invoices...")
 
-    pendingCycles, err := db.GetPendingBillingCycles(ctx)
-    if err != nil {
-        return fmt.Errorf("failed to get pending cycles: %w", err)
-    }
+	pendingCycles, err := db.GetPendingBillingCycles(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get pending cycles: %w", err)
+	}
 
-    paidCount := 0
-    for _, cycle := range pendingCycles {
-        // Simple zero check using Float64Value
-        floatVal, err := cycle.TotalAmount.Float64Value()
-        if err == nil && floatVal.Valid && floatVal.Float64 == 0 {
-            _, err := db.UpdateBillingCycleStatus(ctx, database.UpdateBillingCycleStatusParams{
-                Status: database.BillingStatusPaid,
-                ID:     cycle.ID,
-            })
-            if err != nil {
-                log.Printf("Failed to auto-pay cycle %s: %v", cycle.ID, err)
-                continue
-            }
-            paidCount++
-            log.Printf("Auto-paid $0 invoice for org: %s", cycle.OrganizationName)
-        }
-    }
+	paidCount := 0
+	for _, cycle := range pendingCycles {
+		floatVal, err := cycle.TotalAmount.Float64Value()
+		if err == nil && floatVal.Valid && floatVal.Float64 == 0 {
+			_, err := db.UpdateBillingCycleStatus(ctx, database.UpdateBillingCycleStatusParams{
+				Status: database.BillingStatusPaid,
+				ID:     cycle.ID,
+			})
+			if err != nil {
+				log.Printf("Failed to auto-pay cycle %s: %v", cycle.ID, err)
+				continue
+			}
+			paidCount++
+			log.Printf("Auto-paid $0 invoice for org: %s", cycle.OrganizationName)
+		}
+	}
 
-    log.Printf("Auto-paid %d free invoices", paidCount)
-    return nil
+	log.Printf("Auto-paid %d free invoices", paidCount)
+	return nil
 }

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #4F46E5; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #fff; padding: 30px; border: 1px solid #e5e7eb; }
+        .button { display: inline-block; padding: 12px 24px; background: #4F46E5; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to {{.OrganizationName}}! 🎉</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{.Name}},</p>
+            <p>Thank you for creating your account! We're excited to have you on board.</p>
+            <p>Your organization <strong>{{.OrganizationName}}</strong> has been successfully created and is ready to use.</p>
+            <h3>What's Next?</h3>
+            <ul>
+                <li>Create your first API key</li>
+                <li>Explore the API documentation</li>
+                <li>Invite team members</li>
+                <li>Start building amazing things!</li>
+            </ul>
+            <a href="{{.DashboardURL}}" class="button">Go to Dashboard</a>
+            <p>If you have any questions, feel free to reach out to our support team.</p>
+            <p>Happy building!<br>The Team</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Your SaaS. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

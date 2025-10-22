@@ -1,0 +1,718 @@
+openapi: 3.0.3
+info:
+  title: Multi-Tenant SaaS API
+  description: |
+    A comprehensive multi-tenant SaaS API with authentication, billing, team management, and usage tracking.
+    
+    ## Features
+    - Multi-tenant architecture with organization isolation
+    - JWT authentication and API key management
+    - Role-based access control (Owner, Admin, Member)
+    - Usage tracking and billing
+    - Team invitations
+    - Email verification and password reset
+    - Rate limiting
+    - Stripe and Paystack payment integration
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@yoursaas.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Development server
+  - url: https://api.yoursaas.com/api/v1
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User authentication and account management
+  - name: API Keys
+    description: API key management
+  - name: Team
+    description: Team member management
+  - name: Billing
+    description: Usage tracking and billing
+  - name: Dashboard
+    description: Dashboard statistics
+  - name: Messages
+    description: Message sending endpoints (API key protected)
+  - name: Webhooks
+    description: Payment provider webhooks
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new organization
+      description: Creates a new organization and owner user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization_name
+                - email
+                - password
+              properties:
+                organization_name:
+                  type: string
+                  example: "Acme Inc"
+                email:
+                  type: string
+                  format: email
+                  example: "john@acme.com"
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "SecurePassword123"
+                full_name:
+                  type: string
+                  example: "John Doe"
+      responses:
+        '201':
+          description: Organization created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login to existing account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user profile
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/request-email-verification:
+    post:
+      tags:
+        - Authentication
+      summary: Request email verification link
+      responses:
+        '200':
+          description: Verification email sent
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/verify-email:
+    post:
+      tags:
+        - Authentication
+      summary: Verify email address
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Email verified successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /auth/request-password-reset:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset link
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset email sent if account exists
+
+  /auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password with token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - new_password
+              properties:
+                token:
+                  type: string
+                new_password:
+                  type: string
+                  format: password
+                  minLength: 8
+      responses:
+        '200':
+          description: Password reset successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /keys:
+    post:
+      tags:
+        - API Keys
+      summary: Create a new API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: "Production Key"
+      responses:
+        '201':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - API Keys
+      summary: List all API keys
+      responses:
+        '200':
+          description: API keys retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeysList'
+
+  /keys/{id}:
+    delete:
+      tags:
+        - API Keys
+      summary: Revoke an API key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: API key revoked
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /team/invite:
+    post:
+      tags:
+        - Team
+      summary: Invite a team member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - role
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum: [admin, member]
+      responses:
+        '201':
+          description: Invitation sent
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /team/accept-invitation:
+    post:
+      tags:
+        - Team
+      summary: Accept team invitation
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  format: password
+                  description: Required for new users
+      responses:
+        '200':
+          description: Invitation accepted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /team/members:
+    get:
+      tags:
+        - Team
+      summary: List organization members
+      responses:
+        '200':
+          description: Members retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMembersList'
+
+  /team/members/{id}:
+    delete:
+      tags:
+        - Team
+      summary: Remove team member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member removed
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /team/members/{id}/role:
+    put:
+      tags:
+        - Team
+      summary: Update user role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [admin, member]
+      responses:
+        '200':
+          description: Role updated
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /billing/usage:
+    get:
+      tags:
+        - Billing
+      summary: Get usage statistics
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Usage statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageStats'
+
+  /billing/history:
+    get:
+      tags:
+        - Billing
+      summary: Get billing history
+      responses:
+        '200':
+          description: Billing history retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingHistory'
+
+  /billing/upgrade:
+    post:
+      tags:
+        - Billing
+      summary: Upgrade organization plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plan
+              properties:
+                plan:
+                  type: string
+                  enum: [free, starter, pro]
+      responses:
+        '200':
+          description: Plan upgraded
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /billing/initiate-payment:
+    post:
+      tags:
+        - Billing
+      summary: Initiate payment for invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - billing_cycle_id
+              properties:
+                billing_cycle_id:
+                  type: string
+                  format: uuid
+                provider:
+                  type: string
+                  enum: [stripe, paystack]
+                  default: stripe
+      responses:
+        '200':
+          description: Payment session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSession'
+
+  /messages/send:
+    post:
+      tags:
+        - Messages
+      summary: Send a message (API key required)
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - message
+                - type
+              properties:
+                to:
+                  type: string
+                message:
+                  type: string
+                type:
+                  type: string
+                  enum: [sms, email]
+      responses:
+        '200':
+          description: Message queued
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    RegisterResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            organization:
+              $ref: '#/components/schemas/Organization'
+            token:
+              type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            organization:
+              $ref: '#/components/schemas/Organization'
+            token:
+              type: string
+            expires_at:
+              type: string
+              format: date-time
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        role:
+          type: string
+          enum: [owner, admin, member]
+        organization_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        plan:
+          type: string
+          enum: [free, starter, pro]
+        created_at:
+          type: string
+          format: date-time
+
+    APIKeyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            key:
+              type: string
+              description: Full key only shown once
+            is_active:
+              type: boolean
+            created_at:
+              type: string
+              format: date-time
+
+    APIKeysList:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            keys:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  key:
+                    type: string
+                    description: Masked key
+                  is_active:
+                    type: boolean
+                  last_used_at:
+                    type: string
+                    format: date-time
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
+    UsageStats:
+      type: object
+    BillingHistory:
+      type: object
+    TeamMembersList:
+      type: object
+    PaymentSession:
+      type: object
+    UserProfile:
+      type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

@@ -24,7 +24,6 @@ func (cfg *apiConfig) getCurrentUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get user with organization details
 	user, err := cfg.db.GetUser(r.Context(), userID)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, ApiError{
@@ -34,7 +33,6 @@ func (cfg *apiConfig) getCurrentUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Get organization
 	org, err := cfg.db.GetOrganization(r.Context(), user.OrganizationID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, ApiError{
@@ -100,7 +98,6 @@ func (cfg *apiConfig) createAPIKeyHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get user to check role and org
 	user, err := cfg.db.GetUser(r.Context(), userID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, ApiError{
@@ -110,7 +107,6 @@ func (cfg *apiConfig) createAPIKeyHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Check if user has permission (owner or admin)
 	if user.Role != database.UserRoleOwner && user.Role != database.UserRoleAdmin {
 		respondWithError(w, http.StatusForbidden, ApiError{
 			Code:    "PERMISSION_DENIED",
@@ -119,10 +115,8 @@ func (cfg *apiConfig) createAPIKeyHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Generate API key
 	keyString := generateAPIKey()
 
-	// Create API key in database
 	apiKey, err := cfg.db.CreateAPIKey(r.Context(), database.CreateAPIKeyParams{
 		OrganizationID: user.OrganizationID,
 		Key:            keyString,
@@ -162,7 +156,6 @@ func (cfg *apiConfig) listAPIKeysHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get user to get organization ID
 	user, err := cfg.db.GetUser(r.Context(), userID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, ApiError{
@@ -172,7 +165,6 @@ func (cfg *apiConfig) listAPIKeysHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get all API keys for the organization
 	apiKeys, err := cfg.db.ListOrganizationAPIKeys(r.Context(), user.OrganizationID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, ApiError{
@@ -182,7 +174,6 @@ func (cfg *apiConfig) listAPIKeysHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Format response with masked keys
 	keys := make([]map[string]interface{}, 0, len(apiKeys))
 	for _, key := range apiKeys {
 		keys = append(keys, map[string]interface{}{
@@ -216,7 +207,6 @@ func (cfg *apiConfig) revokeAPIKeyHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get key ID from URL path
 	keyIDStr := r.PathValue("id")
 	keyID, err := uuid.Parse(keyIDStr)
 	if err != nil {
@@ -227,7 +217,6 @@ func (cfg *apiConfig) revokeAPIKeyHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get user to check permissions
 	user, err := cfg.db.GetUser(r.Context(), userID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, ApiError{
@@ -237,7 +226,6 @@ func (cfg *apiConfig) revokeAPIKeyHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Check if user has permission
 	if user.Role != database.UserRoleOwner && user.Role != database.UserRoleAdmin {
 		respondWithError(w, http.StatusForbidden, ApiError{
 			Code:    "PERMISSION_DENIED",
@@ -246,7 +234,6 @@ func (cfg *apiConfig) revokeAPIKeyHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get the API key to verify it belongs to user's organization
 	apiKey, err := cfg.db.GetAPIKey(r.Context(), keyID)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, ApiError{
@@ -264,7 +251,6 @@ func (cfg *apiConfig) revokeAPIKeyHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Deactivate the key
 	_, err = cfg.db.DeactivateAPIKey(r.Context(), keyID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, ApiError{
@@ -284,7 +270,7 @@ func (cfg *apiConfig) sendMessageHandler(w http.ResponseWriter, r *http.Request)
 	type parameters struct {
 		To      string `json:"to"`
 		Message string `json:"message"`
-		Type    string `json:"type"` // "sms" or "email"
+		Type    string `json:"type"`
 	}
 
 	var params parameters
@@ -296,7 +282,6 @@ func (cfg *apiConfig) sendMessageHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Validation
 	if params.To == "" {
 		respondWithError(w, http.StatusBadRequest, ApiError{
 			Code:    "VALIDATION_ERROR",
@@ -336,13 +321,11 @@ func (cfg *apiConfig) sendMessageHandler(w http.ResponseWriter, r *http.Request)
 
 	orgID, _ := GetOrgID(r.Context())
 
-	// Calculate cost
-	cost := 0.01 // SMS
+	cost := 0.01
 	if params.Type == "email" {
 		cost = 0.001
 	}
 
-	// Mock message ID
 	messageID := fmt.Sprintf("msg_%s", generateRandomString(32))
 
 	respondWithJSON(w, http.StatusOK, ApiResponse{
@@ -371,7 +354,6 @@ func (cfg *apiConfig) getMessageStatusHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Mock message status
 	respondWithJSON(w, http.StatusOK, ApiResponse{
 		Success: true,
 		Data: map[string]interface{}{
@@ -413,7 +395,6 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get user to get organization ID
 	user, err := cfg.db.GetUser(r.Context(), userID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, ApiError{
@@ -423,13 +404,12 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Parse query parameters for date range
 	startDateStr := r.URL.Query().Get("start_date")
 	endDateStr := r.URL.Query().Get("end_date")
 
 	var startDate, endDate time.Time
 	if startDateStr != "" {
-		startDate, err = time.Parse("2006-01-02", startDateStr)
+		startDate, err = time.Parse("2025-10-02", startDateStr)
 		if err != nil {
 			startDate = time.Now().AddDate(0, 0, -30)
 		}
@@ -438,7 +418,7 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	if endDateStr != "" {
-		endDate, err = time.Parse("2006-01-02", endDateStr)
+		endDate, err = time.Parse("2025-10-02", endDateStr)
 		if err != nil {
 			endDate = time.Now()
 		}
@@ -449,7 +429,6 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 	startDatePg := pgtype.Timestamp{Time: startDate, Valid: true}
 	endDatePg := pgtype.Timestamp{Time: endDate, Valid: true}
 
-	// Get total usage count
 	totalRequests, err := cfg.db.CountOrganizationUsage(r.Context(), database.CountOrganizationUsageParams{
 		OrganizationID: user.OrganizationID,
 		CreatedAt:      startDatePg,
@@ -459,7 +438,6 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 		totalRequests = 0
 	}
 
-	// Get usage by endpoint
 	usageByEndpoint, err := cfg.db.GetUsageByEndpoint(r.Context(), database.GetUsageByEndpointParams{
 		OrganizationID: user.OrganizationID,
 		CreatedAt:      startDatePg,
@@ -469,7 +447,6 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 		usageByEndpoint = []database.GetUsageByEndpointRow{}
 	}
 
-	// Get usage by API key
 	usageByAPIKey, err := cfg.db.GetUsageByAPIKey(r.Context(), database.GetUsageByAPIKeyParams{
 		OrganizationID: user.OrganizationID,
 		CreatedAt:      startDatePg,
@@ -479,7 +456,6 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 		usageByAPIKey = []database.GetUsageByAPIKeyRow{}
 	}
 
-	// Get daily usage stats
 	dailyStats, err := cfg.db.GetDailyUsageStats(r.Context(), database.GetDailyUsageStatsParams{
 		OrganizationID: user.OrganizationID,
 		CreatedAt:      startDatePg,
@@ -489,7 +465,6 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 		dailyStats = []database.GetDailyUsageStatsRow{}
 	}
 
-	// Calculate totals and costs
 	var successCount, errorCount int64
 	totalCost := 0.0
 	endpointData := make([]map[string]interface{}, 0)
@@ -514,7 +489,6 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 		successRate = (float64(successCount) / float64(totalRequests)) * 100
 	}
 
-	// Format API key usage
 	apiKeyData := make([]map[string]interface{}, 0)
 	for _, key := range usageByAPIKey {
 		apiKeyData = append(apiKeyData, map[string]interface{}{
@@ -526,7 +500,6 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 		})
 	}
 
-	// Format daily breakdown
 	dailyData := make([]map[string]interface{}, 0)
 	for _, day := range dailyStats {
 		dailyData = append(dailyData, map[string]interface{}{
@@ -578,11 +551,9 @@ func (cfg *apiConfig) getBillingHistoryHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Parse pagination params
 	page := int32(1)
 	limit := int32(20)
 
-	// Get billing cycles
 	cycles, err := cfg.db.ListOrganizationBillingCycles(r.Context(), database.ListOrganizationBillingCyclesParams{
 		OrganizationID: user.OrganizationID,
 		Limit:          limit,
@@ -592,7 +563,6 @@ func (cfg *apiConfig) getBillingHistoryHandler(w http.ResponseWriter, r *http.Re
 		cycles = []database.BillingCycle{}
 	}
 
-	// Format invoices
 	invoices := make([]map[string]interface{}, 0)
 	var totalBilled, totalPaid, outstanding float64
 
@@ -600,9 +570,10 @@ func (cfg *apiConfig) getBillingHistoryHandler(w http.ResponseWriter, r *http.Re
 		amount := numericToFloat64(cycle.TotalAmount)
 		totalBilled += amount
 
-		if cycle.Status == database.BillingStatusPaid {
+		switch cycle.Status {
+		case database.BillingStatusPaid:
 			totalPaid += amount
-		} else if cycle.Status == database.BillingStatusPending || cycle.Status == database.BillingStatusOverdue {
+		case database.BillingStatusPending, database.BillingStatusOverdue:
 			outstanding += amount
 		}
 
@@ -618,13 +589,10 @@ func (cfg *apiConfig) getBillingHistoryHandler(w http.ResponseWriter, r *http.Re
 			"created_at":     cycle.CreatedAt,
 		}
 
-		// Add paid_at for paid invoices
 		if cycle.Status == database.BillingStatusPaid {
-			// Note: You might want to add a paid_at field to billing_cycles table
 			invoice["paid_at"] = cycle.CreatedAt
 		}
 
-		// Calculate due date (7 days after period end)
 		dueDate := cycle.PeriodEnd.Time.Add(7 * 24 * time.Hour)
 		invoice["due_date"] = dueDate
 
@@ -669,10 +637,8 @@ func (cfg *apiConfig) calculateCurrentBillHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Get current billing cycle
 	currentCycle, err := cfg.db.GetCurrentBillingCycle(r.Context(), user.OrganizationID)
 	if err != nil {
-		// No current cycle exists, calculate for current month
 		now := time.Now()
 		periodStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 		periodEnd := periodStart.AddDate(0, 1, 0).Add(-time.Second)
@@ -680,7 +646,6 @@ func (cfg *apiConfig) calculateCurrentBillHandler(w http.ResponseWriter, r *http
 		startPeriodPg := pgtype.Timestamp{Time: periodStart, Valid: true}
 		endPeriodPg := pgtype.Timestamp{Time: periodEnd, Valid: true}
 
-		// Count usage for current period
 		totalRequests, _ := cfg.db.CountOrganizationUsage(r.Context(), database.CountOrganizationUsageParams{
 			OrganizationID: user.OrganizationID,
 			CreatedAt:      startPeriodPg,
@@ -705,7 +670,6 @@ func (cfg *apiConfig) calculateCurrentBillHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Return existing cycle data
 	respondWithJSON(w, http.StatusOK, ApiResponse{
 		Success: true,
 		Data: map[string]interface{}{
@@ -741,7 +705,6 @@ func (cfg *apiConfig) getDashboardStatsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Get organization
 	org, err := cfg.db.GetOrganization(r.Context(), user.OrganizationID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, ApiError{
@@ -751,7 +714,6 @@ func (cfg *apiConfig) getDashboardStatsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Calculate stats for last 30 days
 	startDate := time.Now().AddDate(0, 0, -30)
 	endDate := time.Now()
 
@@ -764,7 +726,6 @@ func (cfg *apiConfig) getDashboardStatsHandler(w http.ResponseWriter, r *http.Re
 		CreatedAt_2:    endDatePg,
 	})
 
-	// Get API keys count
 	apiKeys, _ := cfg.db.ListOrganizationAPIKeys(r.Context(), user.OrganizationID)
 	activeKeys := 0
 	for _, key := range apiKeys {
@@ -773,7 +734,6 @@ func (cfg *apiConfig) getDashboardStatsHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	// Calculate current month cost
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 	monthEnd := now
@@ -789,7 +749,6 @@ func (cfg *apiConfig) getDashboardStatsHandler(w http.ResponseWriter, r *http.Re
 
 	currentMonthCost := float64(monthRequests) * 0.01
 
-	// Get usage by endpoint for last 30 days
 	usageByEndpoint, _ := cfg.db.GetUsageByEndpoint(r.Context(), database.GetUsageByEndpointParams{
 		OrganizationID: user.OrganizationID,
 		CreatedAt:      startDatePg,
@@ -845,7 +804,6 @@ func (cfg *apiConfig) getDashboardUsageGraphHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// Get last 30 days
 	startDate := time.Now().AddDate(0, 0, -30)
 	endDate := time.Now()
 
@@ -861,7 +819,6 @@ func (cfg *apiConfig) getDashboardUsageGraphHandler(w http.ResponseWriter, r *ht
 		dailyStats = []database.GetDailyUsageStatsRow{}
 	}
 
-	// Format for graph
 	graphData := make([]map[string]interface{}, 0)
 	for _, day := range dailyStats {
 		graphData = append(graphData, map[string]interface{}{
@@ -903,14 +860,12 @@ func (cfg *apiConfig) getDashboardAPIKeysHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Get last 30 days for usage
 	startDate := time.Now().AddDate(0, 0, -30)
 	endDate := time.Now()
 
 	startDatePg := pgtype.Timestamp{Time: startDate, Valid: true}
 	endDatePg := pgtype.Timestamp{Time: endDate, Valid: true}
 
-	// Get usage by API key
 	usageByAPIKey, err := cfg.db.GetUsageByAPIKey(r.Context(), database.GetUsageByAPIKeyParams{
 		OrganizationID: user.OrganizationID,
 		CreatedAt:      startDatePg,
@@ -920,7 +875,6 @@ func (cfg *apiConfig) getDashboardAPIKeysHandler(w http.ResponseWriter, r *http.
 		usageByAPIKey = []database.GetUsageByAPIKeyRow{}
 	}
 
-	// Format response
 	keysData := make([]map[string]interface{}, 0)
 	for _, key := range usageByAPIKey {
 		keysData = append(keysData, map[string]interface{}{

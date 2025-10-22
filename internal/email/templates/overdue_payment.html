@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #DC2626; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #fff; padding: 30px; border: 1px solid #e5e7eb; }
+        .alert { background: #FEE2E2; border-left: 4px solid #DC2626; padding: 12px; margin: 20px 0; }
+        .button { display: inline-block; padding: 12px 24px; background: #DC2626; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Overdue Payment Notice</h1>
+        </div>
+        <div class="content">
+            <p>Hi {{.OrganizationName}},</p>
+            <div class="alert">
+                <strong>⚠️ Action Required:</strong> Your payment for invoice #{{.InvoiceNumber}} is now {{.DaysPastDue}} days overdue.
+            </div>
+            <p><strong>Amount Due:</strong> ${{printf "%.2f" .Amount}}</p>
+            <p>Please make a payment as soon as possible to avoid service interruption.</p>
+            <a href="{{.PaymentURL}}" class="button">Pay Now</a>
+            <p>If you've already made this payment, please disregard this notice. Payments can take 24-48 hours to process.</p>
+            <p>If you're experiencing difficulties, please contact our support team.</p>
+        </div>
+        <div class="footer">
+            <p>© 2025 Your SaaS. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

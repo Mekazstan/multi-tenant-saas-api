@@ -12,6 +12,31 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const acceptTeamInvitation = `-- name: AcceptTeamInvitation :one
+UPDATE team_invitations
+SET accepted_at = NOW()
+WHERE id = $1
+RETURNING id, organization_id, email, role, invited_by, token, expires_at, accepted_at, declined_at, created_at
+`
+
+func (q *Queries) AcceptTeamInvitation(ctx context.Context, id uuid.UUID) (TeamInvitation, error) {
+	row := q.db.QueryRow(ctx, acceptTeamInvitation, id)
+	var i TeamInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.Role,
+		&i.InvitedBy,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.DeclinedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const activateAPIKey = `-- name: ActivateAPIKey :one
 UPDATE api_keys
 SET is_active = true
@@ -30,6 +55,36 @@ func (q *Queries) ActivateAPIKey(ctx context.Context, id uuid.UUID) (ApiKey, err
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+	)
+	return i, err
+}
+
+const cancelInvitation = `-- name: CancelInvitation :one
+UPDATE team_invitations
+SET declined_at = NOW()
+WHERE id = $1 AND organization_id = $2
+RETURNING id, organization_id, email, role, invited_by, token, expires_at, accepted_at, declined_at, created_at
+`
+
+type CancelInvitationParams struct {
+	ID             uuid.UUID `json:"id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+func (q *Queries) CancelInvitation(ctx context.Context, arg CancelInvitationParams) (TeamInvitation, error) {
+	row := q.db.QueryRow(ctx, cancelInvitation, arg.ID, arg.OrganizationID)
+	var i TeamInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.Role,
+		&i.InvitedBy,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.DeclinedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -87,6 +142,39 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.LastUsedAt,
+	)
+	return i, err
+}
+
+const createAuthToken = `-- name: CreateAuthToken :one
+INSERT INTO auth_tokens (user_id, token, type, expires_at)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, token, type, expires_at, used_at, created_at
+`
+
+type CreateAuthTokenParams struct {
+	UserID    pgtype.UUID      `json:"user_id"`
+	Token     string           `json:"token"`
+	Type      TokenType        `json:"type"`
+	ExpiresAt pgtype.Timestamp `json:"expires_at"`
+}
+
+func (q *Queries) CreateAuthToken(ctx context.Context, arg CreateAuthTokenParams) (AuthToken, error) {
+	row := q.db.QueryRow(ctx, createAuthToken,
+		arg.UserID,
+		arg.Token,
+		arg.Type,
+		arg.ExpiresAt,
+	)
+	var i AuthToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.Type,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -166,6 +254,46 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 	return i, err
 }
 
+const createTeamInvitation = `-- name: CreateTeamInvitation :one
+INSERT INTO team_invitations (organization_id, email, role, invited_by, token, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, organization_id, email, role, invited_by, token, expires_at, accepted_at, declined_at, created_at
+`
+
+type CreateTeamInvitationParams struct {
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	Email          string           `json:"email"`
+	Role           UserRole         `json:"role"`
+	InvitedBy      uuid.UUID        `json:"invited_by"`
+	Token          string           `json:"token"`
+	ExpiresAt      pgtype.Timestamp `json:"expires_at"`
+}
+
+func (q *Queries) CreateTeamInvitation(ctx context.Context, arg CreateTeamInvitationParams) (TeamInvitation, error) {
+	row := q.db.QueryRow(ctx, createTeamInvitation,
+		arg.OrganizationID,
+		arg.Email,
+		arg.Role,
+		arg.InvitedBy,
+		arg.Token,
+		arg.ExpiresAt,
+	)
+	var i TeamInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.Role,
+		&i.InvitedBy,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.DeclinedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createUsageRecord = `-- name: CreateUsageRecord :one
 
 INSERT INTO usage_records (organization_id, api_key_id, endpoint, method, status_code)
@@ -209,7 +337,7 @@ const createUser = `-- name: CreateUser :one
 
 INSERT INTO users (organization_id, email, password_hash, role)
 VALUES ($1, $2, $3, $4)
-RETURNING id, organization_id, email, password_hash, role, created_at
+RETURNING id, organization_id, email, password_hash, role, created_at, email_verified, email_verified_at
 `
 
 type CreateUserParams struct {
@@ -237,6 +365,8 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.PasswordHash,
 		&i.Role,
 		&i.CreatedAt,
+		&i.EmailVerified,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
@@ -263,6 +393,31 @@ func (q *Queries) DeactivateAPIKey(ctx context.Context, id uuid.UUID) (ApiKey, e
 	return i, err
 }
 
+const declineTeamInvitation = `-- name: DeclineTeamInvitation :one
+UPDATE team_invitations
+SET declined_at = NOW()
+WHERE id = $1
+RETURNING id, organization_id, email, role, invited_by, token, expires_at, accepted_at, declined_at, created_at
+`
+
+func (q *Queries) DeclineTeamInvitation(ctx context.Context, id uuid.UUID) (TeamInvitation, error) {
+	row := q.db.QueryRow(ctx, declineTeamInvitation, id)
+	var i TeamInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.Role,
+		&i.InvitedBy,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.DeclinedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteAPIKey = `-- name: DeleteAPIKey :exec
 DELETE FROM api_keys
 WHERE id = $1
@@ -270,6 +425,26 @@ WHERE id = $1
 
 func (q *Queries) DeleteAPIKey(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteAPIKey, id)
+	return err
+}
+
+const deleteExpiredInvitations = `-- name: DeleteExpiredInvitations :exec
+DELETE FROM team_invitations
+WHERE expires_at < NOW()
+`
+
+func (q *Queries) DeleteExpiredInvitations(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredInvitations)
+	return err
+}
+
+const deleteExpiredTokens = `-- name: DeleteExpiredTokens :exec
+DELETE FROM auth_tokens
+WHERE expires_at < NOW()
+`
+
+func (q *Queries) DeleteExpiredTokens(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredTokens)
 	return err
 }
 
@@ -351,6 +526,27 @@ func (q *Queries) GetAPIKeyByKey(ctx context.Context, key string) (GetAPIKeyByKe
 		&i.OrgID,
 		&i.OrgName,
 		&i.OrgPlan,
+	)
+	return i, err
+}
+
+const getAuthToken = `-- name: GetAuthToken :one
+SELECT id, user_id, token, type, expires_at, used_at, created_at FROM auth_tokens
+WHERE token = $1 AND used_at IS NULL AND expires_at > NOW()
+LIMIT 1
+`
+
+func (q *Queries) GetAuthToken(ctx context.Context, token string) (AuthToken, error) {
+	row := q.db.QueryRow(ctx, getAuthToken, token)
+	var i AuthToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.Type,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -602,6 +798,88 @@ func (q *Queries) GetPendingBillingCycles(ctx context.Context) ([]GetPendingBill
 	return items, nil
 }
 
+const getPendingInvitationByEmail = `-- name: GetPendingInvitationByEmail :one
+SELECT id, organization_id, email, role, invited_by, token, expires_at, accepted_at, declined_at, created_at FROM team_invitations
+WHERE organization_id = $1 
+  AND email = $2 
+  AND accepted_at IS NULL 
+  AND declined_at IS NULL
+LIMIT 1
+`
+
+type GetPendingInvitationByEmailParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Email          string    `json:"email"`
+}
+
+func (q *Queries) GetPendingInvitationByEmail(ctx context.Context, arg GetPendingInvitationByEmailParams) (TeamInvitation, error) {
+	row := q.db.QueryRow(ctx, getPendingInvitationByEmail, arg.OrganizationID, arg.Email)
+	var i TeamInvitation
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.Role,
+		&i.InvitedBy,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.DeclinedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getTeamInvitationByToken = `-- name: GetTeamInvitationByToken :one
+SELECT 
+    ti.id, ti.organization_id, ti.email, ti.role, ti.invited_by, ti.token, ti.expires_at, ti.accepted_at, ti.declined_at, ti.created_at,
+    o.name as organization_name,
+    u.email as inviter_email
+FROM team_invitations ti
+JOIN organizations o ON ti.organization_id = o.id
+JOIN users u ON ti.invited_by = u.id
+WHERE ti.token = $1 
+  AND ti.accepted_at IS NULL 
+  AND ti.declined_at IS NULL 
+  AND ti.expires_at > NOW()
+LIMIT 1
+`
+
+type GetTeamInvitationByTokenRow struct {
+	ID               uuid.UUID        `json:"id"`
+	OrganizationID   uuid.UUID        `json:"organization_id"`
+	Email            string           `json:"email"`
+	Role             UserRole         `json:"role"`
+	InvitedBy        uuid.UUID        `json:"invited_by"`
+	Token            string           `json:"token"`
+	ExpiresAt        pgtype.Timestamp `json:"expires_at"`
+	AcceptedAt       pgtype.Timestamp `json:"accepted_at"`
+	DeclinedAt       pgtype.Timestamp `json:"declined_at"`
+	CreatedAt        pgtype.Timestamp `json:"created_at"`
+	OrganizationName string           `json:"organization_name"`
+	InviterEmail     string           `json:"inviter_email"`
+}
+
+func (q *Queries) GetTeamInvitationByToken(ctx context.Context, token string) (GetTeamInvitationByTokenRow, error) {
+	row := q.db.QueryRow(ctx, getTeamInvitationByToken, token)
+	var i GetTeamInvitationByTokenRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.Role,
+		&i.InvitedBy,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.DeclinedAt,
+		&i.CreatedAt,
+		&i.OrganizationName,
+		&i.InviterEmail,
+	)
+	return i, err
+}
+
 const getUsageByAPIKey = `-- name: GetUsageByAPIKey :many
 SELECT 
     ak.id,
@@ -728,7 +1006,7 @@ func (q *Queries) GetUsageRecord(ctx context.Context, id uuid.UUID) (UsageRecord
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, organization_id, email, password_hash, role, created_at FROM users
+SELECT id, organization_id, email, password_hash, role, created_at, email_verified, email_verified_at FROM users
 WHERE id = $1
 `
 
@@ -742,12 +1020,14 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.PasswordHash,
 		&i.Role,
 		&i.CreatedAt,
+		&i.EmailVerified,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, organization_id, email, password_hash, role, created_at FROM users
+SELECT id, organization_id, email, password_hash, role, created_at, email_verified, email_verified_at FROM users
 WHERE email = $1
 `
 
@@ -761,13 +1041,15 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.PasswordHash,
 		&i.Role,
 		&i.CreatedAt,
+		&i.EmailVerified,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }
 
 const getUserWithOrganization = `-- name: GetUserWithOrganization :one
 SELECT 
-    u.id, u.organization_id, u.email, u.password_hash, u.role, u.created_at,
+    u.id, u.organization_id, u.email, u.password_hash, u.role, u.created_at, u.email_verified, u.email_verified_at,
     o.name as organization_name,
     o.plan as organization_plan
 FROM users u
@@ -782,6 +1064,8 @@ type GetUserWithOrganizationRow struct {
 	PasswordHash     string           `json:"password_hash"`
 	Role             UserRole         `json:"role"`
 	CreatedAt        pgtype.Timestamp `json:"created_at"`
+	EmailVerified    bool             `json:"email_verified"`
+	EmailVerifiedAt  pgtype.Timestamp `json:"email_verified_at"`
 	OrganizationName string           `json:"organization_name"`
 	OrganizationPlan PlanType         `json:"organization_plan"`
 }
@@ -796,6 +1080,8 @@ func (q *Queries) GetUserWithOrganization(ctx context.Context, id uuid.UUID) (Ge
 		&i.PasswordHash,
 		&i.Role,
 		&i.CreatedAt,
+		&i.EmailVerified,
+		&i.EmailVerifiedAt,
 		&i.OrganizationName,
 		&i.OrganizationPlan,
 	)
@@ -878,6 +1164,108 @@ func (q *Queries) ListOrganizationBillingCycles(ctx context.Context, arg ListOrg
 	return items, nil
 }
 
+const listOrganizationInvitations = `-- name: ListOrganizationInvitations :many
+SELECT 
+    ti.id, ti.organization_id, ti.email, ti.role, ti.invited_by, ti.token, ti.expires_at, ti.accepted_at, ti.declined_at, ti.created_at,
+    u.email as inviter_email
+FROM team_invitations ti
+JOIN users u ON ti.invited_by = u.id
+WHERE ti.organization_id = $1
+ORDER BY ti.created_at DESC
+`
+
+type ListOrganizationInvitationsRow struct {
+	ID             uuid.UUID        `json:"id"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	Email          string           `json:"email"`
+	Role           UserRole         `json:"role"`
+	InvitedBy      uuid.UUID        `json:"invited_by"`
+	Token          string           `json:"token"`
+	ExpiresAt      pgtype.Timestamp `json:"expires_at"`
+	AcceptedAt     pgtype.Timestamp `json:"accepted_at"`
+	DeclinedAt     pgtype.Timestamp `json:"declined_at"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	InviterEmail   string           `json:"inviter_email"`
+}
+
+func (q *Queries) ListOrganizationInvitations(ctx context.Context, organizationID uuid.UUID) ([]ListOrganizationInvitationsRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationInvitations, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrganizationInvitationsRow{}
+	for rows.Next() {
+		var i ListOrganizationInvitationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.Email,
+			&i.Role,
+			&i.InvitedBy,
+			&i.Token,
+			&i.ExpiresAt,
+			&i.AcceptedAt,
+			&i.DeclinedAt,
+			&i.CreatedAt,
+			&i.InviterEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrganizationMembers = `-- name: ListOrganizationMembers :many
+SELECT 
+    u.id,
+    u.email,
+    u.role,
+    u.email_verified,
+    u.created_at
+FROM users u
+WHERE u.organization_id = $1
+ORDER BY u.created_at DESC
+`
+
+type ListOrganizationMembersRow struct {
+	ID            uuid.UUID        `json:"id"`
+	Email         string           `json:"email"`
+	Role          UserRole         `json:"role"`
+	EmailVerified bool             `json:"email_verified"`
+	CreatedAt     pgtype.Timestamp `json:"created_at"`
+}
+
+func (q *Queries) ListOrganizationMembers(ctx context.Context, organizationID uuid.UUID) ([]ListOrganizationMembersRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationMembers, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrganizationMembersRow{}
+	for rows.Next() {
+		var i ListOrganizationMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Role,
+			&i.EmailVerified,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrganizationUsage = `-- name: ListOrganizationUsage :many
 SELECT id, organization_id, api_key_id, endpoint, method, status_code, created_at FROM usage_records
 WHERE organization_id = $1
@@ -930,7 +1318,7 @@ func (q *Queries) ListOrganizationUsage(ctx context.Context, arg ListOrganizatio
 }
 
 const listOrganizationUsers = `-- name: ListOrganizationUsers :many
-SELECT id, organization_id, email, password_hash, role, created_at FROM users
+SELECT id, organization_id, email, password_hash, role, created_at, email_verified, email_verified_at FROM users
 WHERE organization_id = $1
 ORDER BY created_at DESC
 `
@@ -951,6 +1339,8 @@ func (q *Queries) ListOrganizationUsers(ctx context.Context, organizationID uuid
 			&i.PasswordHash,
 			&i.Role,
 			&i.CreatedAt,
+			&i.EmailVerified,
+			&i.EmailVerifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -998,6 +1388,43 @@ func (q *Queries) ListOrganizations(ctx context.Context, arg ListOrganizationsPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const markTokenAsUsed = `-- name: MarkTokenAsUsed :one
+UPDATE auth_tokens
+SET used_at = NOW()
+WHERE id = $1
+RETURNING id, user_id, token, type, expires_at, used_at, created_at
+`
+
+func (q *Queries) MarkTokenAsUsed(ctx context.Context, id uuid.UUID) (AuthToken, error) {
+	row := q.db.QueryRow(ctx, markTokenAsUsed, id)
+	var i AuthToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.Type,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const removeTeamMember = `-- name: RemoveTeamMember :exec
+DELETE FROM users
+WHERE id = $1 AND organization_id = $2 AND role != 'owner'
+`
+
+type RemoveTeamMemberParams struct {
+	ID             uuid.UUID `json:"id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+func (q *Queries) RemoveTeamMember(ctx context.Context, arg RemoveTeamMemberParams) error {
+	_, err := q.db.Exec(ctx, removeTeamMember, arg.ID, arg.OrganizationID)
+	return err
 }
 
 const updateAPIKeyLastUsed = `-- name: UpdateAPIKeyLastUsed :exec
@@ -1096,20 +1523,20 @@ func (q *Queries) UpdateOrganizationPlan(ctx context.Context, arg UpdateOrganiza
 	return i, err
 }
 
-const updateUserRole = `-- name: UpdateUserRole :one
+const updateUserPassword = `-- name: UpdateUserPassword :one
 UPDATE users
-SET role = $1
+SET password_hash = $1
 WHERE id = $2
-RETURNING id, organization_id, email, password_hash, role, created_at
+RETURNING id, organization_id, email, password_hash, role, created_at, email_verified, email_verified_at
 `
 
-type UpdateUserRoleParams struct {
-	Role UserRole  `json:"role"`
-	ID   uuid.UUID `json:"id"`
+type UpdateUserPasswordParams struct {
+	PasswordHash string    `json:"password_hash"`
+	ID           uuid.UUID `json:"id"`
 }
 
-func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUserRole, arg.Role, arg.ID)
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserPassword, arg.PasswordHash, arg.ID)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -1118,6 +1545,60 @@ func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) 
 		&i.PasswordHash,
 		&i.Role,
 		&i.CreatedAt,
+		&i.EmailVerified,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
+}
+
+const updateUserRole = `-- name: UpdateUserRole :one
+UPDATE users
+SET role = $1
+WHERE id = $2 AND organization_id = $3 AND role != 'owner'
+RETURNING id, organization_id, email, password_hash, role, created_at, email_verified, email_verified_at
+`
+
+type UpdateUserRoleParams struct {
+	Role           UserRole  `json:"role"`
+	ID             uuid.UUID `json:"id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserRole, arg.Role, arg.ID, arg.OrganizationID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.CreatedAt,
+		&i.EmailVerified,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
+}
+
+const verifyUserEmail = `-- name: VerifyUserEmail :one
+UPDATE users
+SET email_verified = true, email_verified_at = NOW()
+WHERE id = $1
+RETURNING id, organization_id, email, password_hash, role, created_at, email_verified, email_verified_at
+`
+
+func (q *Queries) VerifyUserEmail(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, verifyUserEmail, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Role,
+		&i.CreatedAt,
+		&i.EmailVerified,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }

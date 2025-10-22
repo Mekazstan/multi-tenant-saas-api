@@ -11,6 +11,7 @@ require (
 	github.com/redis/go-redis/v9 v9.14.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shopspring/decimal v1.4.0
+	github.com/stripe/stripe-go/v76 v76.25.0
 )
 
 require (
