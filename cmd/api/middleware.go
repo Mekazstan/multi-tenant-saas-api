@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -158,6 +159,10 @@ func UsageTrackingMiddleware(db *database.Queries) func(http.Handler) http.Handl
 			}
 
 			next.ServeHTTP(recorder, r)
+
+			if recorder.statusCode > math.MaxInt32 {
+				recorder.statusCode = math.MaxInt32
+			}
 
 			go func() {
 				ctx := context.Background()

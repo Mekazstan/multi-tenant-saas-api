@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	"github.com/Mekazstan/multi-tenant-saas-api/internal/database"
@@ -73,6 +74,10 @@ func createBillingCycleForOrg(ctx context.Context, db *database.Queries, org dat
 		return fmt.Errorf("failed to convert amount: %w", err)
 	}
 
+	if totalRequests > math.MaxInt32 {
+		totalRequests = math.MaxInt32
+	}
+
 	cycle, err := db.CreateBillingCycle(ctx, database.CreateBillingCycleParams{
 		OrganizationID: org.ID,
 		PeriodStart:    startPeriodPg,
@@ -100,31 +105,27 @@ func decimalToPgNumeric(d decimal.Decimal) (pgtype.Numeric, error) {
 }
 
 func calculateBillingAmount(requests int64, plan database.PlanType) decimal.Decimal {
-	var baseCost, perRequestCost decimal.Decimal
-
 	switch plan {
 	case database.PlanTypeFree:
 		// Free plan: First 1000 requests are free, then $0.01 per request
-		baseCost = decimal.NewFromInt(0)
-		perRequestCost = decimal.NewFromFloat(0.01)
-
 		if requests <= 1000 {
 			return decimal.NewFromInt(0)
 		}
 		billableRequests := requests - 1000
+		perRequestCost := decimal.NewFromFloat(0.01)
 		return decimal.NewFromInt(billableRequests).Mul(perRequestCost)
 
 	case database.PlanTypeStarter:
 		// Starter: $29 base + $0.01 per request
-		baseCost = decimal.NewFromInt(29)
-		perRequestCost = decimal.NewFromFloat(0.01)
+		baseCost := decimal.NewFromInt(29)
+		perRequestCost := decimal.NewFromFloat(0.01)
 		usageCost := decimal.NewFromInt(requests).Mul(perRequestCost)
 		return baseCost.Add(usageCost)
 
 	case database.PlanTypePro:
 		// Pro: $99 base + $0.005 per request (50% discount)
-		baseCost = decimal.NewFromInt(99)
-		perRequestCost = decimal.NewFromFloat(0.005)
+		baseCost := decimal.NewFromInt(99)
+		perRequestCost := decimal.NewFromFloat(0.005)
 		usageCost := decimal.NewFromInt(requests).Mul(perRequestCost)
 		return baseCost.Add(usageCost)
 	}

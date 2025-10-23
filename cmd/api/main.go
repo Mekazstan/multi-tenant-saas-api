@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/Mekazstan/multi-tenant-saas-api/internal/config"
 	"github.com/Mekazstan/multi-tenant-saas-api/internal/database"
@@ -154,8 +155,12 @@ func main() {
 	handler = SecurityHeadersMiddleware(handler)
 
 	server := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: handler,
+		Addr:              ":" + cfg.Port,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	log.Printf("Server starting on port %s", cfg.Port)

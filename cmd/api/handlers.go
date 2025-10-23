@@ -409,7 +409,7 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 
 	var startDate, endDate time.Time
 	if startDateStr != "" {
-		startDate, err = time.Parse("2025-10-02", startDateStr)
+		startDate, err = time.Parse("2006-01-02", startDateStr)
 		if err != nil {
 			startDate = time.Now().AddDate(0, 0, -30)
 		}
@@ -418,7 +418,7 @@ func (cfg *apiConfig) getBillingUsageHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	if endDateStr != "" {
-		endDate, err = time.Parse("2025-10-02", endDateStr)
+		endDate, err = time.Parse("2006-01-02", endDateStr)
 		if err != nil {
 			endDate = time.Now()
 		}
