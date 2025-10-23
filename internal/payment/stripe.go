@@ -51,7 +51,7 @@ func (s *StripeProvider) CreateCheckoutSession(params CheckoutSessionParams) (*s
 		CancelURL:     stripe.String(params.CancelURL),
 		CustomerEmail: stripe.String(params.CustomerEmail),
 		Metadata: map[string]string{
-			"organization_id": params.OrganizationID,
+			"organization_id":  params.OrganizationID,
 			"billing_cycle_id": params.BillingCycleID,
 		},
 	}

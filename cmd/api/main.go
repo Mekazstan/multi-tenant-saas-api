@@ -14,12 +14,12 @@ import (
 )
 
 type apiConfig struct {
-	db          *database.Queries
-	jwtSecret   string
-	redisClient *redis.Client
-	emailService *email.EmailService
+	db             *database.Queries
+	jwtSecret      string
+	redisClient    *redis.Client
+	emailService   *email.EmailService
 	paymentService *payment.PaymentService
-	config       *config.Config
+	config         *config.Config
 }
 
 func main() {
@@ -69,12 +69,12 @@ func main() {
 	dbQueries := database.New(pool)
 
 	apiCfg := apiConfig{
-		db:          dbQueries,
-		jwtSecret:   cfg.JWTSecret,
-		redisClient: redisClient,
-		emailService: emailService,
+		db:             dbQueries,
+		jwtSecret:      cfg.JWTSecret,
+		redisClient:    redisClient,
+		emailService:   emailService,
 		paymentService: paymentService,
-		config:       cfg,
+		config:         cfg,
 	}
 
 	mux := http.NewServeMux()
@@ -96,11 +96,11 @@ func main() {
 	// Protected User Routes (JWT Authentication)
 	// ============================================
 	authMiddleware := AuthMiddleware(apiCfg.jwtSecret)
-	
+
 	// User profile
 	mux.Handle("GET /api/v1/auth/me", authMiddleware(http.HandlerFunc(apiCfg.getCurrentUserHandler)))
 	mux.Handle("POST /api/v1/auth/request-email-verification", authMiddleware(http.HandlerFunc(apiCfg.requestEmailVerificationHandler)))
-	
+
 	// API Keys
 	mux.Handle("POST /api/v1/keys", authMiddleware(http.HandlerFunc(apiCfg.createAPIKeyHandler)))
 	mux.Handle("GET /api/v1/keys", authMiddleware(http.HandlerFunc(apiCfg.listAPIKeysHandler)))

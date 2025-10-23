@@ -46,7 +46,7 @@ func NewEmailService() (*EmailService, error) {
 
 func (s *EmailService) loadTemplates() error {
 	templateDir := "internal/email/templates"
-	
+
 	templates := map[string]string{
 		"welcome":            "welcome.html",
 		"email_verification": "email_verification.html",
@@ -90,7 +90,7 @@ func (s *EmailService) SendEmail(data EmailData) error {
 
 	auth := smtp.PlainAuth("", s.smtpUsername, s.smtpPassword, s.smtpHost)
 	addr := fmt.Sprintf("%s:%s", s.smtpHost, s.smtpPort)
-	
+
 	err := smtp.SendMail(addr, auth, s.fromEmail, []string{data.To}, []byte(message))
 	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
@@ -126,7 +126,7 @@ type EmailVerificationData struct {
 
 func (s *EmailService) SendEmailVerification(to, name, token string) error {
 	verificationURL := fmt.Sprintf("%s/verify-email?token=%s", os.Getenv("APP_URL"), token)
-	
+
 	return s.SendEmail(EmailData{
 		To:          to,
 		Subject:     "Verify your email address",
@@ -147,7 +147,7 @@ type PasswordResetData struct {
 
 func (s *EmailService) SendPasswordReset(to, name, token string) error {
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", os.Getenv("APP_URL"), token)
-	
+
 	return s.SendEmail(EmailData{
 		To:          to,
 		Subject:     "Reset your password",

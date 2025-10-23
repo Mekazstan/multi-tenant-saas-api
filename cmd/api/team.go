@@ -87,7 +87,7 @@ func (cfg *apiConfig) inviteTeamMemberHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	pendingInvite, err := cfg.db.GetPendingInvitationByEmail(r.Context(), 
+	pendingInvite, err := cfg.db.GetPendingInvitationByEmail(r.Context(),
 		database.GetPendingInvitationByEmailParams{
 			OrganizationID: inviter.OrganizationID,
 			Email:          params.Email,
@@ -184,9 +184,9 @@ func (cfg *apiConfig) acceptTeamInvitationHandler(w http.ResponseWriter, r *http
 	}
 
 	existingUser, err := cfg.db.GetUserByEmail(r.Context(), invitation.Email)
-	
+
 	var user database.User
-	
+
 	if err != nil {
 		if params.Password == "" || len(params.Password) < 8 {
 			respondWithError(w, http.StatusBadRequest, ApiError{
@@ -373,10 +373,10 @@ func (cfg *apiConfig) listOrganizationMembersHandler(w http.ResponseWriter, r *h
 	respondWithJSON(w, http.StatusOK, ApiResponse{
 		Success: true,
 		Data: map[string]interface{}{
-			"members":            membersList,
+			"members":             membersList,
 			"pending_invitations": pendingInvites,
-			"total_members":      len(membersList),
-			"total_pending":      len(pendingInvites),
+			"total_members":       len(membersList),
+			"total_pending":       len(pendingInvites),
 		},
 	})
 }

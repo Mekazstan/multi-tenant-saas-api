@@ -317,8 +317,8 @@ func (cfg *apiConfig) verifyEmailHandler(w http.ResponseWriter, r *http.Request)
 		Success: true,
 		Message: "Email verified successfully",
 		Data: map[string]interface{}{
-			"email":         user.Email,
-			"verified_at":   user.EmailVerifiedAt,
+			"email":          user.Email,
+			"verified_at":    user.EmailVerifiedAt,
 			"email_verified": user.EmailVerified,
 		},
 	})

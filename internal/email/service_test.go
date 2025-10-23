@@ -12,7 +12,7 @@ func TestEmailServiceCreation(t *testing.T) {
 	os.Setenv("SMTP_PASSWORD", "password")
 	os.Setenv("FROM_EMAIL", "noreply@example.com")
 	os.Setenv("FROM_NAME", "Test Service")
-	
+
 	defer func() {
 		os.Unsetenv("SMTP_HOST")
 		os.Unsetenv("SMTP_PORT")

@@ -194,22 +194,22 @@ func middlewareCors(next http.Handler) http.Handler {
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		recorder := &statusRecorder{
 			ResponseWriter: w,
 			statusCode:     http.StatusOK,
 		}
-		
+
 		log.Printf("[%s] %s %s - Started", r.Method, r.URL.Path, r.RemoteAddr)
-		
+
 		next.ServeHTTP(recorder, r)
-		
+
 		duration := time.Since(start)
-		log.Printf("[%s] %s %s - Completed %d in %v", 
-			r.Method, 
-			r.URL.Path, 
-			r.RemoteAddr, 
-			recorder.statusCode, 
+		log.Printf("[%s] %s %s - Completed %d in %v",
+			r.Method,
+			r.URL.Path,
+			r.RemoteAddr,
+			recorder.statusCode,
 			duration,
 		)
 	})
@@ -220,14 +220,14 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
-		
+
 		// Enforce HTTPS (only in production)
 		// w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		
+
 		w.Header().Set("Content-Security-Policy", "default-src 'self'")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -236,9 +236,9 @@ func RequestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := generateSecureToken(16)
 		w.Header().Set("X-Request-ID", requestID)
-		
+
 		ctx := context.WithValue(r.Context(), contextKey("request_id"), requestID)
-		
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -248,14 +248,14 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				log.Printf("PANIC: %v", err)
-				
+
 				respondWithError(w, http.StatusInternalServerError, ApiError{
 					Code:    "INTERNAL_ERROR",
 					Message: "An unexpected error occurred",
 				})
 			}
 		}()
-		
+
 		next.ServeHTTP(w, r)
 	})
 }

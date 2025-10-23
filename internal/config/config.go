@@ -17,23 +17,23 @@ const (
 )
 
 type Config struct {
-	Environment Environment
-	Port        string
-	AppURL      string
-	DatabaseURL string
-	RedisURL string
-	JWTSecret string
-	SMTPHost     string
-	SMTPPort     string
-	SMTPUsername string
-	SMTPPassword string
-	FromEmail    string
-	FromName     string
-	RateLimit int
-	StripeSecretKey      string
-	StripeWebhookSecret  string
-	PaystackSecretKey    string
-	PaystackWebhookSecret string
+	Environment             Environment
+	Port                    string
+	AppURL                  string
+	DatabaseURL             string
+	RedisURL                string
+	JWTSecret               string
+	SMTPHost                string
+	SMTPPort                string
+	SMTPUsername            string
+	SMTPPassword            string
+	FromEmail               string
+	FromName                string
+	RateLimit               int
+	StripeSecretKey         string
+	StripeWebhookSecret     string
+	PaystackSecretKey       string
+	PaystackWebhookSecret   string
 	EnableEmailVerification bool
 	EnableTeamInvitations   bool
 }
@@ -58,26 +58,26 @@ func Load() (*Config, error) {
 		Environment: Environment(env),
 		Port:        getEnv("PORT", "8080"),
 		AppURL:      getEnv("APP_URL", "http://localhost:3000"),
-		
+
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379"),
-		
+
 		JWTSecret: getEnv("JWT_SECRET", ""),
-		
+
 		SMTPHost:     getEnv("SMTP_HOST", ""),
 		SMTPPort:     getEnv("SMTP_PORT", "587"),
 		SMTPUsername: getEnv("SMTP_USERNAME", ""),
 		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
 		FromEmail:    getEnv("FROM_EMAIL", "noreply@mts.com"),
 		FromName:     getEnv("FROM_NAME", "MTS"),
-		
+
 		RateLimit: getEnvAsInt("RATE_LIMIT_PER_MINUTE", 60),
-		
+
 		StripeSecretKey:       getEnv("STRIPE_SECRET_KEY", ""),
 		StripeWebhookSecret:   getEnv("STRIPE_WEBHOOK_SECRET", ""),
 		PaystackSecretKey:     getEnv("PAYSTACK_SECRET_KEY", ""),
 		PaystackWebhookSecret: getEnv("PAYSTACK_WEBHOOK_SECRET", ""),
-		
+
 		EnableEmailVerification: getEnvAsBool("ENABLE_EMAIL_VERIFICATION", true),
 		EnableTeamInvitations:   getEnvAsBool("ENABLE_TEAM_INVITATIONS", true),
 	}
@@ -92,7 +92,7 @@ func (c *Config) Validate() error {
 	if c.DatabaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
 	}
-	
+
 	if c.JWTSecret == "" {
 		return fmt.Errorf("JWT_SECRET is required")
 	}
@@ -130,12 +130,12 @@ func getEnvAsInt(key string, defaultValue int) int {
 	if valueStr == "" {
 		return defaultValue
 	}
-	
+
 	value, err := strconv.Atoi(valueStr)
 	if err != nil {
 		return defaultValue
 	}
-	
+
 	return value
 }
 
@@ -144,11 +144,11 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 	if valueStr == "" {
 		return defaultValue
 	}
-	
+
 	value, err := strconv.ParseBool(valueStr)
 	if err != nil {
 		return defaultValue
 	}
-	
+
 	return value
 }

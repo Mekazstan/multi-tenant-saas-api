@@ -26,12 +26,12 @@ func NewPaystackProvider(secretKey, webhookSecret string) *PaystackProvider {
 }
 
 type PaystackInitializeParams struct {
-	Email          string            `json:"email"`
-	Amount         int64             `json:"amount"`
-	Currency       string            `json:"currency,omitempty"`
-	Reference      string            `json:"reference"`
-	CallbackURL    string            `json:"callback_url"`
-	Metadata       map[string]string `json:"metadata"`
+	Email       string            `json:"email"`
+	Amount      int64             `json:"amount"`
+	Currency    string            `json:"currency,omitempty"`
+	Reference   string            `json:"reference"`
+	CallbackURL string            `json:"callback_url"`
+	Metadata    map[string]string `json:"metadata"`
 }
 
 type PaystackInitializeResponse struct {
