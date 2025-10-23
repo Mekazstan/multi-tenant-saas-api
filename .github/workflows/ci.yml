@@ -33,6 +33,16 @@ jobs:
         cache: true
     
     - run: go mod download
+
+    - name: Create test .env file
+      run: |
+        cat > .env << EOF
+        DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test
+        REDIS_URL=redis://localhost:6379
+        JWT_SECRET=test-secret
+        PORT=8080
+        APP_URL=http://localhost:8080
+        EOF
     
     - name: Install staticcheck
       run: go install honnef.co/go/tools/cmd/staticcheck@latest
